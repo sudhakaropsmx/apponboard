@@ -40,25 +40,60 @@ func getAppGroups(w http.ResponseWriter, r *http.Request) {
       return
    }
 	decoder := json.NewDecoder(r.Body)
-
 	var data myAppData
 	err := decoder.Decode(&data)
 	if err != nil {
 		panic(err)
 	}
-	application := data.Application
-	fmt.Fprintf(w, postgresdb.GetAppGroupsData(application))
+	fmt.Fprintf(w, postgresdb.GetAppGroupsData(data.Application))
 	fmt.Println("Endpoint Hit: AppGroupsAPI")
 }
+type myUserData struct {
+	UserName string
+}
 func getUserGroups(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, postgresdb.GetUserGroupsData("opsmxemp1"))
+	if r.Method != "POST" {
+       http.Error(w, http.StatusText(405), 405)
+      return
+   }
+	decoder := json.NewDecoder(r.Body)
+	var data myUserData
+	err := decoder.Decode(&data)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Fprintf(w, postgresdb.GetUserGroupsData(data.UserName))
 	fmt.Println("Endpoint Hit: UserGroupsAPI")
 }
-type myData struct {
-	User string
-	Groups  []string
+type UserApp struct {
+	UserName string
+	Application string
+}
+func GetUserAppAuthorized(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+       http.Error(w, http.StatusText(405), 405)
+      return
+   }
+	decoder := json.NewDecoder(r.Body)
+
+	var data UserApp
+	err := decoder.Decode(&data)
+	if err != nil {
+		panic(err)
+	}
+	userdata := postgresdb.GetUserAppGroupsData(data.UserName,data.Application)
+	if err != nil {
+        http.Error(w, http.StatusText(500), 500)
+        return
+    }
+	fmt.Fprintf(w, userdata )
+	fmt.Println("Endpoint Hit: GetUserAuthorizedAPI")
 }
 
+type myData struct {
+	UserName string
+	Groups  []string
+}
 func GetUserAuthorized(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
        http.Error(w, http.StatusText(405), 405)
@@ -73,7 +108,7 @@ func GetUserAuthorized(w http.ResponseWriter, r *http.Request) {
 	}
 	groups := data.Groups
 	
-	userdata := postgresdb.GetUserAuthorizedData(data.User,groups)
+	userdata := postgresdb.GetUserAuthorizedData(data.UserName,groups)
 	if err != nil {
         http.Error(w, http.StatusText(500), 500)
         return
@@ -86,6 +121,7 @@ func handleRequests() {
 	postgresdb.InitDB()
     myRouter := mux.NewRouter().StrictSlash(true)
     myRouter.HandleFunc("/", homePage)
+    myRouter.HandleFunc("/api/getUserAppAuthorized",GetUserAppAuthorized).Methods("POST")
     myRouter.HandleFunc("/api/getAppAuthorized",GetUserAuthorized).Methods("POST")
     myRouter.HandleFunc("/api/getAppGroups", getAppGroups).Methods("POST")
     myRouter.HandleFunc("/api/getUserGroups", getUserGroups).Methods("POST")
